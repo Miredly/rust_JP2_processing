@@ -1,0 +1,16 @@
+[package]
+name = "rust_image_processing"
+version = "0.1.0"
+authors = ["Miles <miles@miredmusic.com>"]
+
+[dependencies]
+imageproc = "0.16.0"
+image = "0.20.0"
+rusttype = "0.5"
+glob = "0.2.11"
+palette = "0.4.1"
+jpeg2000 = "0.2.0"
+rayon = "1.0.3"
+kiss3d = "0.22.1"
+nalgebra = "0.19"
+voca_rs = "1.8.0"
