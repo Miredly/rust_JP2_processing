@@ -24,6 +24,7 @@ use voca_rs::*;
 struct MetaData{
 	date: String,
 	time: String,
+	hour: String,
 	wlen: String
 }
 
@@ -48,8 +49,8 @@ fn build_list(wlen: String) -> Vec<String>{
 }
 
 fn sort(mut flist : Vec<Frame>) -> Vec<Frame>{
-	println!("SORTING...");
-	flist.sort_by(|a, b| b.idx.cmp(&a.idx));
+	println!("SORTING... {}", flist[0].dat.wlen);
+	flist.sort_by(|a, b| a.idx.cmp(&b.idx));
 	return flist;
 }
 
@@ -59,6 +60,7 @@ fn parse_meta(file: String) -> MetaData {
 	let data  = MetaData{
 		date: split[0].to_string().replace("_", "/"),
 		time: split[1].to_string().replace("_", ":"),
+		hour: split[1].split("_").collect::<Vec<_>>()[0].to_string(),
 		wlen: split[2].split("_").collect::<Vec<_>>()[3].split(".").collect::<Vec<_>>()[0].to_string()
 	};
 	return data
@@ -118,7 +120,7 @@ fn main(){
 		for i in 0..list.len(){
 			indices.push(i as i16);
 		}
-		println!("FRAMES: {:#?} TARGET: {:#?} OUTPUT: {:#?}", indices.len(), target_dir, output_dir);
+		println!("FRAMES: {:#?} TARGET: {:#?}", indices.len(), wlen);
 
 		let img_path_len        = list[0].split("/").collect::<Vec<_>>().len(); 
 		let frames : Vec<Frame> = Vec::new();
@@ -146,11 +148,20 @@ fn main(){
 
 	}
 
+	let mut len = wlist[0].lock().unwrap().len();
+	for wlen in wlist.iter(){
+		//figure out which list is the shortest
+		if wlen.lock().unwrap().len() < len {
+			len = wlen.lock().unwrap().len();
+		}
+	}
+
 	//bring our colored frames out of the mutex
 	let mut cframes = Vec::new();
 	for wlen in wlist.iter().rev(){
-		let freed = sort(wlen.lock().unwrap().to_vec());
-		cframes.push(freed);
+		let mut freed = sort(wlen.lock().unwrap().to_vec());
+		freed.truncate(len); //trim all lists down to the lowest common number of frames. 
+		cframes.push(freed); //there seems to be a bottleneck at this push
 	}
 
 	let frames : Vec<image::DynamicImage> = Vec::new();
@@ -159,13 +170,13 @@ fn main(){
 	
 	//build our final composite frames
 	for wlen in cframes.iter(){
-		
 		wlen.par_iter().for_each(|item|{
-			println!("CHECK: : {} :: {}", manipulate::zfill(&item.idx.to_string(), 2), item.dat.wlen);
+			println!("Compositing: : {} :: {}", manipulate::zfill(&item.idx.to_string(), 2), item.dat.wlen);
+		    
 		    //build all the additional images to add to the frame
 		    let mut frame = image::DynamicImage::new_rgb8(3840, 3240);
 		    let sun       = item.frm.resize(3240, 3240, image::FilterType::Nearest);
-		    let earth     = image::open("media/misc/earth.png").unwrap();
+		    let earth     = image::open(format!("media/misc/earth/earth_{}.png", item.dat.hour)).unwrap();
 		    let gfx       = image::open(format!("media/misc/OVERLAY_2x3_WHITE_{}.png", l_idx)).unwrap();
 		    let thumb304  = cframes[0][item.idx as usize].frm.resize(180, 180, image::FilterType::Nearest);
 		    let thumb171  = cframes[1][item.idx as usize].frm.resize(180, 180, image::FilterType::Nearest);
@@ -193,9 +204,17 @@ fn main(){
 		l_idx += 1;
 	}
 
-	for (idx, frame) in f_frames.lock().unwrap().iter().enumerate(){
-		frame.save(format!("tmp/ff/{}.png", manipulate::zfill(&idx.to_string(), 4))).unwrap();
+
+	let mut indices : Vec<i16> = Vec::new();	//we do this so filenames are still in the correct order even though we parallelize the output
+	for i in 0..f_frames.lock().unwrap().len(){ 
+		indices.push(i as i16);
 	}
+
+	f_frames.lock().unwrap().par_iter().zip(indices).for_each(|(frame, index)|{
+		println!("prerendering: {}", index);
+		frame.save(format!("tmp/ff/{}.png", manipulate::zfill(&index.to_string(), 4))).unwrap();
+	});
+
 
 	// build a video
 	Command::new("sh")
