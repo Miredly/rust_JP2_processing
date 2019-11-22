@@ -12,6 +12,7 @@ extern crate voca_rs;
 use std::process::Command;
 use std::sync::{Mutex};
 use std::env;
+use std::fs;
 use imageproc::drawing::draw_text_mut;
 use image::{GenericImage, GenericImageView, Rgba};
 use image::imageops::overlay;
@@ -46,6 +47,16 @@ fn build_list(wlen: String) -> Vec<String>{
 		}
 	}
 	return return_vec;
+}
+
+fn dec_list(list: Vec<String>, skip: i32) -> Vec<String>{
+	let mut olist = Vec::new();
+	for (i, f) in list.iter().enumerate(){
+		if i as i32 % skip == 0{
+			olist.push(f.clone());
+		}
+	}
+	return olist;
 }
 
 fn sort(mut flist : Vec<Frame>) -> Vec<Frame>{
@@ -90,8 +101,10 @@ fn annotate(mut frame: image::DynamicImage, metadata: &MetaData) -> image::Dynam
     let font   = FontCollection::from_bytes(font).unwrap().into_font().unwrap();
     let height = 35.0;
     let scale  = Scale { x: height * 2.0, y: height };
-    //timestamp
+    
+    //date
     draw_text_mut(&mut frame, Rgba([185u8, 185u8, 185u8, 0u8]), 3062, 312, scale, &font, &metadata.date);
+    //time
     draw_text_mut(&mut frame, Rgba([185u8, 185u8, 185u8, 0u8]), 3062, 312 + height as u32, scale, &font, &metadata.time);
     //"earth for scale"
     draw_text_mut(&mut frame, Rgba([185u8, 185u8, 185u8, 0u8]),  500, 2800, scale, &font, "earth for size scale");
@@ -100,26 +113,31 @@ fn annotate(mut frame: image::DynamicImage, metadata: &MetaData) -> image::Dynam
 }
 
 fn main(){
+	let _ = fs::create_dir("./tmp");
 	//clear tmp
 	Command::new("sh")
 		.arg("-c")
-		.arg(format!("rm -r tmp/ff/*.png"))
+		.arg(format!("rm -r tmp/*.png"))
 		.spawn()
 		.expect("failed to execute process");
 
 	let args: Vec<String> = env::args().collect();
 	let target_dir        = &args[1];
 	let output_dir        = &args[2];
+	let skip_frames       = &args[3].parse::<i32>().unwrap();
 	let wavlist           = ["94", "335", "211", "193", "171", "304"];
 	let mut wlist         = Vec::new(); 
 
 	for wlen in wavlist.iter(){
-		let list = build_list(target_dir.to_string() + "/" + wlen);
-		let mut indices : Vec<i16> = Vec::new();
 		
+		let list = build_list(target_dir.to_string() + "/" + wlen);
+		let list = dec_list(list, *skip_frames);
+
+		let mut indices : Vec<i16> = Vec::new();
 		for i in 0..list.len(){
 			indices.push(i as i16);
 		}
+		
 		println!("FRAMES: {:#?} TARGET: {:#?}", indices.len(), wlen);
 
 		let img_path_len        = list[0].split("/").collect::<Vec<_>>().len(); 
@@ -212,14 +230,14 @@ fn main(){
 
 	f_frames.lock().unwrap().par_iter().zip(indices).for_each(|(frame, index)|{
 		println!("prerendering: {}", index);
-		frame.save(format!("tmp/ff/{}.png", manipulate::zfill(&index.to_string(), 4))).unwrap();
+		frame.save(format!("tmp/{}.png", manipulate::zfill(&index.to_string(), 4))).unwrap();
 	});
 
 
 	// build a video
 	Command::new("sh")
 		.arg("-c")
-		.arg(format!("ffmpeg -r 24 -i tmp/ff/%04d.png -vcodec libx264 -filter 'minterpolate=mi_mode=blend' -b:v 4M -pix_fmt yuv420p  -y {}/{}", output_dir, "testvideo.mp4"))
+		.arg(format!("ffmpeg -r 24 -i tmp/%04d.png -vcodec libx264 -filter 'minterpolate=mi_mode=blend' -b:v 4M -pix_fmt yuv420p  -y {}/{}", output_dir, "testvideo.mp4"))
 		.spawn()
 		.expect("failed to execute process");
 }
