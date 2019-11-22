@@ -182,6 +182,8 @@ fn main(){
 		cframes.push(freed); //there seems to be a bottleneck at this push
 	}
 
+	let date = &cframes[0][0].dat.date.replace("/", "_"); //store the start date of the video for the final filename
+
 	let frames : Vec<image::DynamicImage> = Vec::new();
 	let f_frames                          = Mutex::new(frames);
 	let mut l_idx                         = 0;
@@ -222,8 +224,7 @@ fn main(){
 		l_idx += 1;
 	}
 
-
-	let mut indices : Vec<i16> = Vec::new();	//we do this so filenames are still in the correct order even though we parallelize the output
+	let mut indices : Vec<i16> = Vec::new();	//so filenames are still in the correct order even though we parallelize the output
 	for i in 0..f_frames.lock().unwrap().len(){ 
 		indices.push(i as i16);
 	}
@@ -237,7 +238,7 @@ fn main(){
 	// build a video
 	Command::new("sh")
 		.arg("-c")
-		.arg(format!("ffmpeg -r 24 -i tmp/%04d.png -vcodec libx264 -filter 'minterpolate=mi_mode=blend' -b:v 4M -pix_fmt yuv420p  -y {}/{}", output_dir, "testvideo.mp4"))
+		.arg(format!("ffmpeg -r 24 -i tmp/%04d.png -vcodec libx264 -filter 'minterpolate=mi_mode=blend' -b:v 4M -pix_fmt yuv420p  -y {}/{}_video.mp4", output_dir, date))
 		.spawn()
 		.expect("failed to execute process");
 }
