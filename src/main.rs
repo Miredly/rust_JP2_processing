@@ -97,7 +97,7 @@ fn apply_clut(mut img: image::DynamicImage, clut: image::DynamicImage) -> image:
 }
 
 fn annotate(mut frame: image::DynamicImage, metadata: &MetaData) -> image::DynamicImage{
-	let font   = Vec::from(include_bytes!("BebasNeue-Regular.ttf") as &[u8]);
+	let font   = Vec::from(include_bytes!("../media/misc/BebasNeue-Regular.ttf") as &[u8]);
     let font   = FontCollection::from_bytes(font).unwrap().into_font().unwrap();
     let height = 35.0;
     let scale  = Scale { x: height * 2.0, y: height };
