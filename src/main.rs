@@ -20,6 +20,7 @@ use glob::glob;
 use rayon::prelude::*;
 use voca_rs::*;
 
+
 #[derive(Clone, Debug)]
 struct MetaData{
 	date: String,
@@ -41,9 +42,22 @@ struct Template {
 	font:           String,
 	input_dir:      String,
 	output_dir:     String,
+	
 	resolution:     (u32, u32),
-	ts_loc:         (u32, u32),
-	earth_loc:      (u32, u32),
+	
+	ts:             (u32, u32),
+	sun:            (u32, u32),
+	earth:          (u32, u32),
+	
+	thumb94:        (u32, u32),
+	thumb335:       (u32, u32),
+	thumb211:       (u32, u32),
+	thumb193:       (u32, u32),
+	thumb171:       (u32, u32),
+	thumb304:       (u32, u32),
+
+	overlay:        (u32, u32),
+	
 	thumb_size:     u32,
 	skip_frames:    u8
 }
@@ -102,18 +116,30 @@ fn tuple_from_string(string: String) -> (u32, u32){
 }
 
 fn open_template(path: &String) -> Template{
-	let file = fs::File::open(path).unwrap();
+	let file   = fs::File::open(path).unwrap();
 	let reader = BufReader::new(file);
 	let mut stripped: Vec<String> = Vec::new();
-	
 	let mut template = Template{
 		mus_id:      "test".to_string(),
 		font:        "test".to_string(),
 		input_dir:   "test".to_string(),
 		output_dir:  "test".to_string(),
+		
 		resolution:  (0, 0),
-		ts_loc:      (0, 0),
-		earth_loc:   (0, 0),
+		
+		ts:          (0, 0),
+		sun:         (0, 0),
+		earth:       (0, 0),
+
+		thumb94:     (0, 0),
+		thumb335:    (0, 0),
+		thumb211:    (0, 0),
+		thumb193:    (0, 0),
+		thumb171:    (0, 0),
+		thumb304:    (0, 0),
+
+		overlay:     (0, 0),
+		
 		thumb_size:  0,
 		skip_frames: 0
 	};
@@ -121,26 +147,40 @@ fn open_template(path: &String) -> Template{
 	//strip any comment lines /newlines from the template
 	for (_index, line) in reader.lines().enumerate(){
 		let line = line.unwrap();
+		println!("{:?}", line);
 	    if !line.as_str().contains("#"){
-	    	if line != "\n"{
+	    	if line != "" {
 	    		stripped.push(line.to_string());
-	    	}  
+	    	}
 	    }
 	}
-
+	println!("{:?}", stripped);
 	for (index, line) in stripped.iter().enumerate(){
 		let line = line.to_string();
 		match index{
-			0 => template.mus_id      = line,
-			1 => template.font        = line,
-			2 => template.input_dir   = line,
-			3 => template.output_dir  = line,
-			4 => template.resolution  = tuple_from_string(line),
-			5 => template.ts_loc      = tuple_from_string(line),
-			6 => template.earth_loc   = tuple_from_string(line),
-			7 => template.thumb_size  = line.parse::<u32>().unwrap(),
-			8 => template.skip_frames = line.parse::<u8>().unwrap(),
-			_ => (),
+			0  => template.mus_id      = line,
+			1  => template.font        = line,
+			2  => template.input_dir   = line,
+			3  => template.output_dir  = line,
+			
+			4  => template.resolution  = tuple_from_string(line),
+			
+			5  => template.ts          = tuple_from_string(line),
+			6  => template.sun         = tuple_from_string(line),
+			7  => template.earth       = tuple_from_string(line),
+
+			8  => template.thumb94     = tuple_from_string(line),
+			9  => template.thumb335    = tuple_from_string(line),
+			10 => template.thumb211    = tuple_from_string(line),
+			11 => template.thumb193    = tuple_from_string(line),
+			12 => template.thumb171    = tuple_from_string(line),
+			13 => template.thumb304    = tuple_from_string(line),
+
+			14 => template.overlay     = tuple_from_string(line),
+			
+			15 => template.thumb_size  = line.parse::<u32>().unwrap(),
+			16 => template.skip_frames = line.parse::<u8>().unwrap(),
+			 _ => (),
 		}
 	}
 
@@ -170,39 +210,24 @@ fn apply_clut(mut img: image::DynamicImage, clut: image::DynamicImage) -> image:
 	return img;
 }
 
-//write text on an image in WHATEVER FONT WE WANT.
-fn annotate(mut frame: image::DynamicImage, metadata: &MetaData) -> image::DynamicImage{
+fn annotate(mut frame: image::DynamicImage, text: String, fontpath: String, loc: (u32, u32), size: f32, color: (u8, u8, u8, u8)) -> image::DynamicImage{
+	
+
+	// let font   = Vec::from(include_bytes!(fontpath) as &[u8]);
 	let font   = Vec::from(include_bytes!("../media/misc/BebasNeue-Regular.ttf") as &[u8]);
     let font   = FontCollection::from_bytes(font).unwrap().into_font().unwrap();
-    let height = 35.0;
+    let height = size;
     let scale  = Scale { x: height * 2.0, y: height };
-    
-    //date
-    draw_text_mut(
-    	&mut frame, 
-    	Rgba([185u8, 185u8, 185u8, 0u8]), 
-    	3062, 312, 
-    	scale, 
-    	&font, 
-    	&metadata.date);
-    //time
-    draw_text_mut(
-    	&mut frame, 
-    	Rgba([185u8, 185u8, 185u8, 0u8]), 
-    	3062, 312 + height as u32, 
-    	scale, 
-    	&font, 
-    	&metadata.time);
-    //"earth for scale"
-    draw_text_mut(
-    	&mut frame, 
-    	Rgba([185u8, 185u8, 185u8, 0u8]),  
-    	500, 2800, 
-    	scale, 
-    	&font, 
-    	"earth for size scale");
 
-	return frame;
+    draw_text_mut(
+    	&mut frame,
+    	Rgba([color.0, color.1, color.2, color.3]),
+    	loc.0, loc.1,
+    	scale,
+    	&font,
+    	&text);
+
+    return frame;
 }
 
 fn main(){
@@ -215,10 +240,10 @@ fn main(){
 		.expect("failed to execute process");
 
 	let args: Vec<String> = env::args().collect();  //cargo run --release testdata ./ 2
-	let template          = open_template(&args[1]);
-	let target_dir        = template.input_dir.to_string();
-	let output_dir        = template.output_dir.to_string();
-	let skip_frames       = template.skip_frames;
+	let tp                = open_template(&args[1]);
+	let target_dir        = tp.input_dir.to_string();
+	let output_dir        = tp.output_dir.to_string();
+	let skip_frames       = tp.skip_frames;
 	
 	let wavlist           = ["94", "335", "211", "193", "171", "304"];
 	let mut wlist         = Vec::new(); 
@@ -282,43 +307,68 @@ fn main(){
 		wlist.pop();
 	}
 
-	let date = &cframes[0][0].dat.date.replace("/", "_"); //store the start date of the video for the final filename
+	//store the start date of the video for the final filename
+	let date = &cframes[0][0].dat.date.replace("/", "_"); 
 	let mut l_idx = 0;
 	let mut wlist = Vec::new();
 	
 	//build our final composite frames
 	for wlen in cframes.iter(){
 		let frames : Vec<Frame> = Vec::new();
-		let f_frames                                 = Mutex::new(frames);
+		let f_frames            = Mutex::new(frames);
 		
 		wlen.par_iter().for_each(|item|{
 			println!("Compositing: : {} :: {}", manipulate::zfill(&item.idx.to_string(), 2), item.dat.wlen);
-		    // let item_idx = item.idx;
 
 		    //build all the additional images to add to the frame
-		    let mut frame = image::DynamicImage::new_rgb8(template.resolution.0, template.resolution.1);
-		    let sun       = item.frm.resize(3240, 3240, image::FilterType::Nearest);
+		    let mut frame = image::DynamicImage::new_rgb8(tp.resolution.0, tp.resolution.1);
+		    let sun       = item.frm.resize(tp.resolution.1, tp.resolution.1, image::FilterType::Nearest);
 		    let earth     = image::open(format!("media/misc/earth/earth_{}.png", item.dat.hour)).unwrap();
-		    let gfx       = image::open(format!("media/misc/OVERLAY_{}_{}.png", template.mus_id, l_idx)).unwrap();
-		    let thumb304  = cframes[0][item.idx as usize].frm.resize(180, 180, image::FilterType::Nearest);
-		    let thumb171  = cframes[1][item.idx as usize].frm.resize(180, 180, image::FilterType::Nearest);
-		    let thumb193  = cframes[2][item.idx as usize].frm.resize(180, 180, image::FilterType::Nearest);
-		    let thumb211  = cframes[3][item.idx as usize].frm.resize(180, 180, image::FilterType::Nearest);
-		    let thumb335  = cframes[4][item.idx as usize].frm.resize(180, 180, image::FilterType::Nearest);
-		    let thumb94   = cframes[5][item.idx as usize].frm.resize(180, 180, image::FilterType::Nearest);
+		    let gfx       = image::open(format!("media/misc/OVERLAY_{}_{}.png", tp.mus_id, l_idx)).unwrap();
+
+			//add thumbnails of corresponding frames from other spectra
+		    let thumb304  = cframes[0][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+		    let thumb171  = cframes[1][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+		    let thumb193  = cframes[2][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+		    let thumb211  = cframes[3][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+		    let thumb335  = cframes[4][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+		    let thumb94   = cframes[5][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
 
 		    //add additional images to main frame
-		    overlay(&mut frame, &sun,      345, 0    );
-		    overlay(&mut frame, &earth,    500, 2750 );
-		    overlay(&mut frame, &thumb94,   88, 650  );
-		    overlay(&mut frame, &thumb335,  88, 875  );
-		    overlay(&mut frame, &thumb211,  88, 1105 );
-		    overlay(&mut frame, &thumb193,  88, 1335 );
-		    overlay(&mut frame, &thumb171,  88, 1560 );
-		    overlay(&mut frame, &thumb304,  88, 1790 );
-		    overlay(&mut frame, &gfx,        0, 0    );
+		    overlay(&mut frame, &sun,            tp.sun.0, tp.sun.1      );
+		    overlay(&mut frame, &earth,        tp.earth.0, tp.earth.1    );
+		    
+		    overlay(&mut frame, &thumb94,    tp.thumb94.0, tp.thumb94.1  );
+		    overlay(&mut frame, &thumb335,  tp.thumb335.0, tp.thumb335.1 );
+		    overlay(&mut frame, &thumb211,  tp.thumb211.0, tp.thumb211.1 );
+		    overlay(&mut frame, &thumb193,  tp.thumb193.0, tp.thumb193.1 );
+		    overlay(&mut frame, &thumb171,  tp.thumb171.0, tp.thumb171.1 );
+		    overlay(&mut frame, &thumb304,  tp.thumb304.0, tp.thumb304.1 );
+		    
+		    overlay(&mut frame, &gfx,        tp.overlay.0, tp.overlay.1  );
 
-		    let frame = annotate(frame, &item.dat);
+
+		    let frame = annotate(
+		    	frame, 
+		    	item.dat.date.to_string(), 
+		    	tp.font.to_string(), 
+		    	(tp.ts.0, tp.ts.1), 
+		    	35.0, 
+		    	(185u8, 185u8, 185u8, 0u8));
+		    let frame = annotate(
+		    	frame, 
+		    	item.dat.time.to_string(), 
+		    	tp.font.to_string(), 
+		    	(tp.ts.0, tp.ts.1 + 35), 
+		    	35.0, 
+		    	(185u8, 185u8, 185u8, 0u8));
+		    let frame = annotate(
+		    	frame, 
+		    	"Earth for scale".to_string(), 
+		    	tp.font.to_string(), 
+		    	(tp.earth.0, tp.earth.1 + 50), 
+		    	35.0, 
+		    	(185u8, 185u8, 185u8, 0u8));
 
 		    let output_frame = Frame{
 		    	frm: frame,
@@ -342,7 +392,8 @@ fn main(){
 		cframes.pop();
 	}
  	
- 	//really not sure why I have to juggle this data so much to get it in the order I want, I'm pretty sure it worked before without this
+ 	/* really not sure why I have to juggle this data so much to get it in the order I want, 
+ 	I'm pretty sure it worked before without this */
  	let mut prerender_frames = Vec::new();
 	for wlen in wlist.iter(){
 		let wlen = sort(wlen.lock().unwrap().to_vec()); 
@@ -356,7 +407,8 @@ fn main(){
 		}
 	}
 
-	let mut indices : Vec<u32> = Vec::new(); //so filenames are still in the correct order even though we parallelize the output
+	//so filenames are still in the correct order even though we parallelize the output.
+	let mut indices : Vec<u32> = Vec::new(); 
 	for i in 0..final_out.len(){ 
 		indices.push(i as u32);
 	}
@@ -365,8 +417,6 @@ fn main(){
 		println!("prerendering: {}", index);
 		frame.frm.save(format!("tmp/{}.png", manipulate::zfill(&index.to_string(), 4))).unwrap();
 	});
-
-
 
 	// build a video
 	Command::new("sh")
