@@ -11,7 +11,7 @@ use std::process::Command;
 use std::sync::{Mutex};
 use std::env;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use imageproc::drawing::draw_text_mut;
 use image::{GenericImage, GenericImageView, Rgba};
 use image::imageops::overlay;
@@ -212,10 +212,10 @@ fn apply_clut(mut img: image::DynamicImage, clut: image::DynamicImage) -> image:
 
 fn annotate(mut frame: image::DynamicImage, text: String, fontpath: String, loc: (u32, u32), size: f32, color: (u8, u8, u8, u8)) -> image::DynamicImage{
 	
-
-	// let font   = Vec::from(include_bytes!(fontpath) as &[u8]);
-	let font   = Vec::from(include_bytes!("../media/misc/BebasNeue-Regular.ttf") as &[u8]);
-    let font   = FontCollection::from_bytes(font).unwrap().into_font().unwrap();
+	// let font   = Vec::from(include_bytes!("../media/misc/BebasNeue-Regular.ttf") as &[u8]);
+	let mut fdata  = Vec::new();
+	fs::File::open(fontpath).unwrap().read_to_end(&mut fdata).unwrap();
+    let font   = FontCollection::from_bytes(fdata).unwrap().into_font().unwrap();
     let height = size;
     let scale  = Scale { x: height * 2.0, y: height };
 

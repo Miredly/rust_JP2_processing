@@ -2,7 +2,7 @@
 NASM
 
 ##PATH TO FONT
-../media/misc/BebasNeue-Regular.ttf
+./media/misc/BebasNeue-Regular.ttf
 
 ##PATH TO IMAGES
 ./testdata
