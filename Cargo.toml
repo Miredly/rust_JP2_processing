@@ -14,3 +14,6 @@ rayon = "1.0.3"
 kiss3d = "0.22.1"
 nalgebra = "0.19"
 voca_rs = "1.8.0"
+
+[profile.release]
+lto = "fat"

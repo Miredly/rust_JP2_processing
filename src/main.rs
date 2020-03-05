@@ -1,3 +1,4 @@
+
 extern crate image;
 extern crate imageproc;
 extern crate palette;
@@ -20,7 +21,6 @@ use glob::glob;
 use rayon::prelude::*;
 use voca_rs::*;
 
-
 #[derive(Clone, Debug)]
 struct MetaData{
 	date: String,
@@ -36,7 +36,7 @@ struct Frame {
 	dat: MetaData
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Template {
 	mus_id:         String,
 	font:           String,
@@ -116,9 +116,10 @@ fn tuple_from_string(string: String) -> (u32, u32){
 }
 
 fn open_template(path: &String) -> Template{
-	let file   = fs::File::open(path).unwrap();
-	let reader = BufReader::new(file);
+	let file                      = fs::File::open(path).unwrap();
+	let reader                    = BufReader::new(file);
 	let mut stripped: Vec<String> = Vec::new();
+	
 	let mut template = Template{
 		mus_id:      "test".to_string(),
 		font:        "test".to_string(),
@@ -239,7 +240,7 @@ fn main(){
 		.spawn()
 		.expect("failed to execute process");
 
-	let args: Vec<String> = env::args().collect();  //cargo run --release testdata ./ 2
+	let args: Vec<String> = env::args().collect();  
 	let tp                = open_template(&args[1]);
 	let target_dir        = tp.input_dir.to_string();
 	let output_dir        = tp.output_dir.to_string();
@@ -266,6 +267,7 @@ fn main(){
 
 		list.par_iter().zip(indices).for_each(|(item, index)|{
 			println!("ITEM {} INDEX {}", item, index);
+			
 			let in_path   = item.to_string(); 
 		    let meta_data = parse_meta(in_path.split("/").collect::<Vec<_>>()[img_path_len - 1].to_string());
 
@@ -299,7 +301,7 @@ fn main(){
 	for wlen in wlist.iter().rev(){
 		let mut freed = sort(wlen.lock().unwrap().to_vec());
 		freed.truncate(len); //trim all lists down to the lowest common number of frames. 
-		cframes.push(freed); //there seems to be a bottleneck at this push
+		cframes.push(freed);
 	}
 	
 	//quick and dirty freeing up a bunch of RAM
@@ -308,7 +310,7 @@ fn main(){
 	}
 
 	//store the start date of the video for the final filename
-	let date = &cframes[0][0].dat.date.replace("/", "_"); 
+	let date      = &cframes[0][0].dat.date.replace("/", "_"); 
 	let mut l_idx = 0;
 	let mut wlist = Vec::new();
 	
@@ -366,7 +368,7 @@ fn main(){
 		    	frame, 
 		    	"Earth for scale".to_string(), 
 		    	tp.font.to_string(), 
-		    	(tp.earth.0, tp.earth.1 + 50), 
+		    	(tp.earth.0 -2, tp.earth.1 + 65), 
 		    	35.0, 
 		    	(185u8, 185u8, 185u8, 0u8));
 
