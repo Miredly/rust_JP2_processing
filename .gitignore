@@ -2,3 +2,4 @@
 **/*.rs.bk
 *.jp2
 *.mp4
+.DS_Store
