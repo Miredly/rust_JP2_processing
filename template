@@ -5,7 +5,7 @@ NASM
 ./media/misc/BebasNeue-Regular.ttf
 
 ##PATH TO IMAGES
-./testdata
+../mus_boulder/8_12
 
 ##OUTPUT PATH FOR VIDEO
 ./
@@ -43,4 +43,7 @@ NASM
 180
 
 ##SKIPFRAMES
-4
+64
+
+##ADD GRAPHICS
+false

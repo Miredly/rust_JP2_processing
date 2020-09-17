@@ -59,7 +59,8 @@ struct Template {
 	overlay:        (u32, u32),
 	
 	thumb_size:     u32,
-	skip_frames:    u8
+	skip_frames:    u8,
+	add_gfx:        String
 }
 
 //create a list of filepaths to unprocessed image data
@@ -142,7 +143,9 @@ fn open_template(path: &String) -> Template{
 		overlay:     (0, 0),
 		
 		thumb_size:  0,
-		skip_frames: 0
+		skip_frames: 0,
+
+		add_gfx:     "test".to_string()
 	};
 
 	//strip any comment lines /newlines from the template
@@ -181,6 +184,7 @@ fn open_template(path: &String) -> Template{
 			
 			15 => template.thumb_size  = line.parse::<u32>().unwrap(),
 			16 => template.skip_frames = line.parse::<u8>().unwrap(),
+			17 => template.add_gfx     = line,
 			 _ => (),
 		}
 	}
@@ -326,28 +330,32 @@ fn main(){
 		    let mut frame = image::DynamicImage::new_rgb8(tp.resolution.0, tp.resolution.1);
 		    let sun       = item.frm.resize(tp.resolution.1, tp.resolution.1, image::FilterType::Nearest);
 		    let earth     = image::open(format!("media/misc/earth/earth_{}.png", item.dat.hour)).unwrap();
-		    let gfx       = image::open(format!("media/misc/OVERLAY_{}_{}.png", tp.mus_id, l_idx)).unwrap();
-
-			//add thumbnails of corresponding frames from other spectra
-		    let thumb304  = cframes[0][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
-		    let thumb171  = cframes[1][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
-		    let thumb193  = cframes[2][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
-		    let thumb211  = cframes[3][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
-		    let thumb335  = cframes[4][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
-		    let thumb94   = cframes[5][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
-
-		    //add additional images to main frame
-		    overlay(&mut frame, &sun,            tp.sun.0, tp.sun.1      );
+			
+			//print in the Sun and Moon
+			overlay(&mut frame, &sun,            tp.sun.0, tp.sun.1      );
 		    overlay(&mut frame, &earth,        tp.earth.0, tp.earth.1    );
-		    
-		    overlay(&mut frame, &thumb94,    tp.thumb94.0, tp.thumb94.1  );
-		    overlay(&mut frame, &thumb335,  tp.thumb335.0, tp.thumb335.1 );
-		    overlay(&mut frame, &thumb211,  tp.thumb211.0, tp.thumb211.1 );
-		    overlay(&mut frame, &thumb193,  tp.thumb193.0, tp.thumb193.1 );
-		    overlay(&mut frame, &thumb171,  tp.thumb171.0, tp.thumb171.1 );
-		    overlay(&mut frame, &thumb304,  tp.thumb304.0, tp.thumb304.1 );
-		    
-		    overlay(&mut frame, &gfx,        tp.overlay.0, tp.overlay.1  );
+
+			//add our overlay if specified
+			if tp.add_gfx == "true" {
+				let gfx       = image::open(format!("media/misc/OVERLAY_{}_{}.png", tp.mus_id, l_idx)).unwrap();
+				//add thumbnails of corresponding frames from other spectra
+				let thumb304  = cframes[0][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+				let thumb171  = cframes[1][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+				let thumb193  = cframes[2][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+				let thumb211  = cframes[3][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+				let thumb335  = cframes[4][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+				let thumb94   = cframes[5][item.idx as usize].frm.resize(tp.thumb_size, tp.thumb_size, image::FilterType::Nearest);
+
+				//add additional images to main frame
+				overlay(&mut frame, &thumb94,    tp.thumb94.0, tp.thumb94.1  );
+				overlay(&mut frame, &thumb335,  tp.thumb335.0, tp.thumb335.1 );
+				overlay(&mut frame, &thumb211,  tp.thumb211.0, tp.thumb211.1 );
+				overlay(&mut frame, &thumb193,  tp.thumb193.0, tp.thumb193.1 );
+				overlay(&mut frame, &thumb171,  tp.thumb171.0, tp.thumb171.1 );
+				overlay(&mut frame, &thumb304,  tp.thumb304.0, tp.thumb304.1 );
+				overlay(&mut frame, &gfx,        tp.overlay.0, tp.overlay.1  );
+			}
+			
 
 
 		    let frame = annotate(
@@ -423,7 +431,7 @@ fn main(){
 	// build a video
 	Command::new("sh")
 		.arg("-c")
-		.arg(format!("ffmpeg -r 24 -i tmp/%04d.png -vcodec libx264 -filter 'minterpolate=mi_mode=blend' -b:v 4M -pix_fmt yuv420p -y {}/{}_video.mp4", output_dir, date))
+		.arg(format!("ffmpeg -r 24 -i tmp/%04d.png -vcodec libx264 -filter 'minterpolate=mi_mode=blend' -b:v 4M -pix_fmt yuv420p -y {}/{}__{}.mp4", output_dir, tp.mus_id, date))
 		.spawn()
 		.expect("failed to execute process");
 }
